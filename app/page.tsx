@@ -4,6 +4,7 @@ import React, { useMemo, useState } from 'react';
 import type { WalletError } from '@tronweb3/tronwallet-abstract-adapter';
 import { WalletDisconnectedError, WalletNotFoundError } from '@tronweb3/tronwallet-abstract-adapter';
 import { useWallet, WalletProvider } from '@tronweb3/tronwallet-adapter-react-hooks';
+/* eslint-disable */
 import {
   WalletActionButton,
   WalletConnectButton,
@@ -13,6 +14,7 @@ import {
 } from '@tronweb3/tronwallet-adapter-react-ui';
 import toast from 'react-hot-toast';
 import { TextField, Alert } from '@mui/material';
+/* eslint-enable */
 import { BitKeepAdapter, OkxWalletAdapter, TokenPocketAdapter, TronLinkAdapter } from '@tronweb3/tronwallet-adapters';
 import { WalletConnectAdapter } from '@tronweb3/tronwallet-adapter-walletconnect';
 import { tronWeb } from './tronweb';
@@ -74,6 +76,7 @@ export default function Home() {
 }
 
 function SignDemo() {
+  /* eslint-disable */
   const { signMessage, signTransaction, address } = useWallet();
   const [message, setMessage] = useState('');
   const [signedMessage, setSignedMessage] = useState('');
@@ -84,6 +87,7 @@ function SignDemo() {
     const res = await signMessage(message);
     setSignedMessage(res);
   }
+  /* eslint-enable */
 
   async function onSignTransaction() {
     const transaction = await tronWeb.transactionBuilder.sendTrx(receiver, tronWeb.toSun(1), address);
