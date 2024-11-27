@@ -1,101 +1,127 @@
-import Image from "next/image";
+'use client';
 
+import React, { useMemo, useState } from 'react';
+import type { WalletError } from '@tronweb3/tronwallet-abstract-adapter';
+import { WalletDisconnectedError, WalletNotFoundError } from '@tronweb3/tronwallet-abstract-adapter';
+import { useWallet, WalletProvider } from '@tronweb3/tronwallet-adapter-react-hooks';
+import {
+  WalletActionButton,
+  WalletConnectButton,
+  WalletDisconnectButton,
+  WalletModalProvider,
+  WalletSelectButton,
+} from '@tronweb3/tronwallet-adapter-react-ui';
+import toast from 'react-hot-toast';
+import { TextField, Alert } from '@mui/material';
+import { BitKeepAdapter, OkxWalletAdapter, TokenPocketAdapter, TronLinkAdapter } from '@tronweb3/tronwallet-adapters';
+import { WalletConnectAdapter } from '@tronweb3/tronwallet-adapter-walletconnect';
+import { tronWeb } from './tronweb';
+import { LedgerAdapter } from '@tronweb3/tronwallet-adapter-ledger';
+import { Button } from '@tronweb3/tronwallet-adapter-react-ui';
+
+/**
+ * wrap your app content with WalletProvider and WalletModalProvider
+ * WalletProvider provide some useful properties and methods
+ * WalletModalProvider provide a Modal in which you can select wallet you want use.
+ *
+ * Also you can provide a onError callback to process any error such as ConnectionError
+ */
 export default function Home() {
+  function onError(e: WalletError) {
+    if (e instanceof WalletNotFoundError) {
+      toast.error(e.message);
+    } else if (e instanceof WalletDisconnectedError) {
+      toast.error(e.message);
+    } else toast.error(e.message);
+  }
+  const adapters = useMemo(function () {
+    const tronLinkAdapter = new TronLinkAdapter();
+    const walletConnectAdapter = new WalletConnectAdapter({
+      network: 'Nile',
+      options: {
+        relayUrl: 'wss://relay.walletconnect.com',
+        // example WC app project ID
+        projectId: process.env.NEXT_PUBLIC_PROJECT_ID || '5fc507d8fc7ae913fff0b8071c7df231',
+        metadata: {
+          name: 'Tron flash transfers',
+          description: 'Tron flash transfers',
+          url: 'https://tron-flash-transfers.vercel.app',
+          icons: ['https://tron-flash-transfers.vercel.app/globe.svg'],
+        },
+      },
+      web3ModalConfig: {
+        themeMode: 'dark',
+        themeVariables: {
+          '--wcm-z-index': '1000'
+        },
+      }
+    });
+    const ledger = new LedgerAdapter({
+      accountNumber: 2,
+    });
+    const bitKeepAdapter = new BitKeepAdapter();
+    const tokenPocketAdapter = new TokenPocketAdapter();
+    const okxwalletAdapter = new OkxWalletAdapter();
+    return [tronLinkAdapter, bitKeepAdapter, tokenPocketAdapter, okxwalletAdapter, walletConnectAdapter, ledger];
+  }, []);
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+    <WalletProvider onError={onError} autoConnect={true} disableAutoConnectOnLoad={true} adapters={adapters}>
+      <WalletModalProvider>
+        <SignDemo></SignDemo>
+      </WalletModalProvider>
+    </WalletProvider>
+  );
+}
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
+function SignDemo() {
+  const { signMessage, signTransaction, address } = useWallet();
+  const [message, setMessage] = useState('');
+  const [signedMessage, setSignedMessage] = useState('');
+  const receiver = process.env.NEXT_PUBLIC_TRX_RECEIVER || 'TXw59MY9e5AtLu31si8PWrZs5kac11ThpF';
+  const [open, setOpen] = useState(false);
+
+  async function onSignMessage() {
+    const res = await signMessage(message);
+    setSignedMessage(res);
+  }
+
+  async function onSignTransaction() {
+    const transaction = await tronWeb.transactionBuilder.sendTrx(receiver, tronWeb.toSun(1), address);
+
+    const signedTransaction = await signTransaction(transaction);
+    // const signedTransaction = await tronWeb.trx.sign(transaction);
+    await tronWeb.trx.sendRawTransaction(signedTransaction);
+    setOpen(true);
+  }
+  return (
+    <div className="container mx-auto">
+      <WalletActionButton />
+      {/* <h2 className='text-xl font-bold'>Sign a message</h2>
+      <p>
+        You can sign a message by click the button.
+      </p>
+      <Button style={{ marginRight: '20px' }} onClick={onSignMessage}>
+        SignMessage
+      </Button>
+      <TextField
+        size="small"
+        onChange={(e) => setMessage(e.target.value)}
+        placeholder="input message to signed"
+      ></TextField>
+      <p>Your singedMessage is: {signedMessage}</p> */}
+      <h2 className='text-xl font-bold'>Sign a Transaction</h2>
+      <p>
+        You can transfer 0.001 Trx to &nbsp;<i>{receiver}</i>&nbsp;by click the button.
+      </p>
+      <Button onClick={onSignTransaction}>Transfer</Button>
+      {open && (
+        <Alert onClose={() => setOpen(false)} severity="success" sx={{ width: '100%', marginTop: 1 }}>
+          Success! You can confirm your transfer on{' '}
+          <a target="_blank" rel="noreferrer" href={`https://nile.tronscan.org/#/address/${address}`}>
+            Tron Scan
           </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+        </Alert>
+      )}
     </div>
   );
 }
